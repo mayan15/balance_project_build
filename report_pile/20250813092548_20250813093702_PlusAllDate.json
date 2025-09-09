@@ -1,0 +1,17 @@
+{
+    "code_id": -1,
+    "sn": "813092548_202508",
+    "serial_number": "20250813092548_20250813093702_PlusAllDate",
+    "result": "不合格",
+    "pass": [],
+    "fail": "csv文件列名不满足算法计算要求，缺少关键列名",
+    "data": {},
+    "level": "",
+    "summary": "ver1.0_bulid_20250513",
+    "ErrorCode": [
+        0,
+        0,
+        ""
+    ],
+    "describe": "export json"
+}

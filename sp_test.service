@@ -1,0 +1,12 @@
+[Unit]
+Description=Run startup script
+After=network.target
+
+[Service]
+ExecStart=/bin/bash /root/data/sp/charging_project_build/start_sh.sh
+Restart=on-failure
+User=root
+Group=root
+
+[Install]
+WantedBy=multi-user.target

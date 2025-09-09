@@ -1,0 +1,28 @@
+# 日志
+*.log
+
+# 数据文件
+*.csv
+*.xlsx
+
+# 模型和大文件
+*.h5
+*.zip
+*.tar.gz
+*.pkg
+/main_station
+/build/
+
+# 虚拟环境
+venv/
+.env/
+
+# Python 缓存
+__pycache__/
+*.pyc
+
+# PyInstaller spec 文件
+*.spec
+
+# 有密码不让git推送
+kafkaconfig.ini

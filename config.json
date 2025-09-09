@@ -1,0 +1,76 @@
+{
+    "data_overview":{
+        "code_id": 1,
+        "need_check_column":[
+            "date_time",
+            "soc",
+            "current",
+            "vol_total", 
+            "vol_max", "max_vol_no",
+            "vol_min", "min_vol_no",
+            "temp_max", "temp_min", "max_temp_no", "min_temp_no", 
+            "bms_need_vol", "bms_need_cur",
+            "charge_out_vol", "charge_out_cur"
+        ],
+        "need_clean_columns":[
+            "date_time", "vol_total", "current", "vol_max", "max_vol_no", "temp_max",
+            "max_temp_no",
+            "temp_min", "min_temp_no", "soc", "bms_need_vol", "bms_need_cur", "charge_out_vol",
+            "charge_out_cur"
+        ],
+        "need_cov_float_colums":[
+            "vol_total", "current", "vol_max", "soc", "bms_need_vol", "bms_need_cur", "charge_out_vol",
+            "charge_out_cur"
+        ],
+        "need_cov_int_colums":[
+            "max_vol_no", "temp_max", "temp_min", "max_temp_no", "min_temp_no"
+        ],
+        "LFP_VOL": 3.2,
+        "MCN_VOL": 3.65,
+
+        "judge_values":{
+           "clean_unable_values":[100.1, 0, -1000.0, 1000.0, 1.0, 5.0, -20, 100, -20, 100],
+           "min_length_of_df":30,
+           "min_charge_time": 15,   
+           "max_charge_time": 360,
+           "max_updata_fre": 20,
+           "diff_vol_threshold": 0.01,
+           "diff_soc_threshold": 0.01,
+           "diff_temp_threshold": 0.01,
+           "abnormal_value_ratio_threshold": 2,
+           "vol_max_threshold": 4.3,
+           "vol_min_threshold": 0.0,
+           "temp_max_threshold": 45.0,
+           "temp_min_threshold": -5.0,
+           "soc_min_threshold": 20.0,
+           "soc_max_threshold": 80.0,
+           "vol_dec_threshold": 0.01,
+           "temp_dec_threshold": 0.01,
+           "vol_total_max_threshold": 1000.0,
+           "vol_total_min_threshold": 0.0,
+           "current_max_threshold": 100.0,
+           "current_min_threshold": 0.0,
+           "vol_total_raise_max_threshold": 1000.0,
+           "vol_total_raise_min_threshold": 0.0,
+           "vol_raise_max_threshold": 1000.0,
+           "vol_raise_min_threshold": 0.0,
+           "current_raise_max_threshold": 100.0,
+           "current_raise_min_threshold": 0.0,
+           "soc_raise_max_threshold": 100.0,
+           "soc_raise_min_threshold": 0.0,
+           "temp_raise_max_threshold": 100.0,
+           "temp_raise_min_threshold": 0.0
+        },
+
+        "error_id": [-1, -2, -3, -4, -5, -99],
+        "error_id_description": ["csv文件列名不满足算法计算要求，缺少关键列名", "csv文件数据清洗出错，请检查数据格式",
+        "数据上传频率不满足算法计算要求，请人工审核数据来源", "csv文件数据量大于最大限定值，请人工筛查数据",
+        "csv文件数据量小于计算规定最小限定值，请人工筛查数据", "模块执行异常，异常原因："]
+    },
+
+    "abusive_condition":{},
+    "consistency":{},
+    "soh":{},
+    "self_judgement":{},
+    "sensor_check":{}
+}

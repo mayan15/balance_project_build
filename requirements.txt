@@ -1,0 +1,12 @@
+GPUtil==1.4.0
+GPUtil==1.4.0
+kafka_python==2.0.2
+matplotlib==3.3.4
+mpi4py==3.1.4
+numpy==1.24.4
+openpyxl==3.0.7
+pandas==2.0.3
+psutil==5.8.0
+scikit_learn==0.24.1
+scipy==1.15.2
+seaborn==0.11.1
