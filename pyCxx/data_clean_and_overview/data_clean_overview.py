@@ -101,6 +101,8 @@ def add_out_dir_info(rlt_res, key, value, confidence, explanation):
     confidence: 可信度信息 [-10, 10]  正值代表可信度，值越大，可信度越高， 负值表示异常， 值越小，异常等级越高
     explanation : 对可信度值的解释
     """
+    # rlt_res['out'][key] = value
+
     # 初始化指定的键
     rlt_res['out'][key] = []
     # 添加总电压、默认值和可信度
@@ -157,9 +159,82 @@ def merge_plus_data(df_cleaned):
         arr = np.linspace(0, end, num=len(result[cell_id]["plus_vol"][0]))  # 关键函数[1,5](@ref)
         result[cell_id]["time"] = arr
     return result   
-       
 
-def run(df_origin, picture_save_path, pickle_save_path):
+
+def autocap_data_process(autocap_data_raw):
+    '''
+    提取计算容量需要的信息，并返回字典
+    '''
+
+    autocap_data = {}
+    cell_num = 0
+    autocap_df_list = autocap_data_raw['df_list']
+    cell_no_list = autocap_data_raw['cell_no_list']
+    available_cell_no_list = []
+    
+    # 遍历所有 DataFrame
+    for idx_file, df in enumerate(autocap_df_list):
+        vol_columns = [col for col in df.columns if col.startswith('vol')]
+        ah_columns = [col for col in df.columns if col.startswith('bms_ah_')]
+
+        # 遍历电芯列
+        for idx_channel, cell_no in enumerate(cell_no_list[idx_file]):
+            # 校验：电芯号、电压列、容量列必须同时有效
+            if (
+                cell_no == 0
+                or idx_channel >= len(vol_columns)
+                or idx_channel >= len(ah_columns)
+            ):
+                continue
+
+            vol_col = vol_columns[idx_channel]
+            ah_col = ah_columns[idx_channel]
+
+            # 再次确认列存在
+            if vol_col not in df.columns or ah_col not in df.columns:
+                continue
+
+            # 去掉空值
+            vol_series = df[vol_col].dropna()
+            ah_series = df[ah_col].dropna()
+
+            # 如果其中任意一个为空，则跳过该电芯
+            if vol_series.empty or ah_series.empty:
+                continue
+
+            cell_id = str(cell_no)
+
+            # 初始化
+            if cell_id not in autocap_data:
+                autocap_data[cell_id] = {'start_vol': None, 'end_vol': None, 'dcap': None}
+
+            # ---------- 电压 ----------
+            autocap_data[cell_id]['start_vol'] = vol_series.iloc[0] / 1000
+            autocap_data[cell_id]['end_vol'] = vol_series.iloc[-1] / 1000
+
+            # ---------- 容量 ----------
+            autocap_data[cell_id]['dcap'] = ah_series.iloc[-1] / 100
+
+            # 更新有效电芯数
+            cell_num += 1
+            available_cell_no_list.append(cell_no)
+
+    # --- 汇总前排序 ---
+    available_cell_no_list = sorted(set(available_cell_no_list))  # 去重并排序
+
+    # 汇总容量计算需求数据
+    # TODO 电池类型和容量改为从信息数据中读取
+    autocap_rlt_res = {
+        'cell_type': 'lfp',
+        'standard_capacity': 105,
+        'cell_no_list': available_cell_no_list,
+        'cell_num': cell_num,
+        'autocap_data': autocap_data
+    }
+
+    return autocap_rlt_res
+
+def run(autocap_data_raw, pulse_data_raw, picture_save_path, pickle_save_path):
     """
         对原始数据进行清洗以及数据画像统计
 
@@ -189,18 +264,28 @@ def run(df_origin, picture_save_path, pickle_save_path):
         "ErrorCode": [0, 0, '']
     }
     try:
-        # --------data clean ---------#
+        # --------容量检测数据 ---------#
+        # 提取电压、容量数据
+        autocap_rlt_res = autocap_data_process(autocap_data_raw)
+
+        # 添加到rlt_res
+        add_out_dir_info(rlt_res, '容量计算需求数据', autocap_rlt_res, '', '')
+
+        # --------脉冲检测数据 ---------#
+        # 0. 读取数据
+        df_pulse = pulse_data_raw[0]
+
         # 1. 判断cvs文件是否符合要求，即算法执行必须数据列名存在
         # todo: 增加不同文件数据的分别判断
         check_column = ['cell_id', 'plus_repeat_cnt', 'plus_present_cnt', 'plus_cur', 'plus_vol']
-        rlt = check_invalid_col(df_origin, check_column)
+        rlt = check_invalid_col(df_pulse, check_column)
         if not rlt:
             rlt_res['ErrorCode'][0] = -1
             rlt_res['ErrorCode'][2] = "csv文件列名不满足算法计算要求，缺少关键列名"
             return rlt_res, []
         
         # 2. 数据清洗
-        rlt_res['ErrorCode'][0], df_cleaned = data_clean(df_origin)
+        rlt_res['ErrorCode'][0], df_cleaned = data_clean(df_pulse)
         # 3. 对脉冲检测数据进行整合
         all_plus_data = merge_plus_data(df_cleaned)
         add_out_dir_info(rlt_res, '脉冲数据', all_plus_data, '', '')

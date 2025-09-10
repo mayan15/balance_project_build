@@ -27,40 +27,110 @@ log = Logger('./logs/main_out.log', level=level)
 '''
 @ 检查csv_origin是否存在待处理csv， 若存在则读取并处理生成为报告， 并在读取完成后，将当前csv文件删除，并存储到csv_history中 
 '''
+# def run_generate_report(log):
+#     df_raw = []
+#     file_raw = []
+#     origin_data_folder = "csv_origin"
+#     history_data_folder = "csv_history"
+#     # 创建用于放置历史文件的
+#     history_folder_path = os.path.join('./csv_history', datetime.now().strftime("%Y%m%d"))
+#     os.makedirs(history_folder_path, exist_ok=True)
+#     for filename in os.listdir(origin_data_folder):
+#         if filename.endswith('.csv'):
+#             origin_path = os.path.join(origin_data_folder, filename)
+#             history_path = os.path.join(history_folder_path, filename)
+#             error_path = os.path.join('csv_error', filename)
+#             file_list_id = filename.split('.')
+#             file_raw.append(file_list_id[0])
+#             try:
+#                 df_raw.append(pd.read_csv(origin_path))
+#             except Exception as e:
+#                 shutil.move(origin_path, error_path)
+#                 log.logger.error(f"read csv fails: { traceback.print_exc()}")
+#                 log.logger.error("读取原始文件%s失败，请检查文件格式是否正确!"%(file_list_id[0]))
+#                 continue
+#             alg_rlt = alg_execution(df_raw, file_raw, log)
+#             log.logger.info("算法执行完成，返回%s"%(alg_rlt['ErrorCode'][0]))
+#             if alg_rlt['ErrorCode'][0] == 0:
+#                 log.logger.info("文件%s生成报告成功"%(file_list_id[0]))
+#                 # shutil.move(origin_path, history_path) 
+#             else:
+#                 log.logger.error("文件%s生成报告失败，原因：%s"%(file_list_id[0], alg_rlt['ErrorCode'][2]))
+#                 # shutil.move(origin_path, error_path)
+#             df_raw.clear()
+#             file_raw.clear()
+
+import re
+# 提取容量计算数据
+def select_capacity_data(autocap_data_raw, filename, df):
+    # 按前缀分类存储数据
+    if filename.startswith('autocap'):
+
+        # 收集电芯号
+        match = re.search(r"autocap_((?:\d+_)+)\d{14}\.csv", filename)
+        if match:
+            nums_str = match.group(1).strip("_")
+            cell_ids = list(map(int, nums_str.split("_")))
+            autocap_data_raw['cell_no_list'].append(cell_ids)
+
+            # 收集原始数据
+            autocap_data_raw['df_list'].append(df)
+
+        else:
+            log.logger.error(f"文件名 {filename} 格式错误，无法提取电芯号") 
 
 def run_generate_report(log):
-    df_raw = []
-    file_raw = []
     origin_data_folder = "csv_origin"
     history_data_folder = "csv_history"
-    # 创建用于放置历史文件的
-    history_folder_path = os.path.join('./csv_history', datetime.now().strftime("%Y%m%d"))
-    os.makedirs(history_folder_path, exist_ok=True)
-    for filename in os.listdir(origin_data_folder):
-        if filename.endswith('.csv'):
-            origin_path = os.path.join(origin_data_folder, filename)
-            history_path = os.path.join(history_folder_path, filename)
-            error_path = os.path.join('csv_error', filename)
-            file_list_id = filename.split('.')
-            file_raw.append(file_list_id[0])
-            try:
-                df_raw.append(pd.read_csv(origin_path))
-            except Exception as e:
-                shutil.move(origin_path, error_path)
-                log.logger.error(f"read csv fails: { traceback.print_exc()}")
-                log.logger.error("读取原始文件%s失败，请检查文件格式是否正确!"%(file_list_id[0]))
-                continue
-            alg_rlt = alg_execution(df_raw, file_raw, log)
-            log.logger.info("算法执行完成，返回%s"%(alg_rlt['ErrorCode'][0]))
-            if alg_rlt['ErrorCode'][0] == 0:
-                log.logger.info("文件%s生成报告成功"%(file_list_id[0]))
-                # shutil.move(origin_path, history_path) 
-            else:
-                log.logger.error("文件%s生成报告失败，原因：%s"%(file_list_id[0], alg_rlt['ErrorCode'][2]))
-                # shutil.move(origin_path, error_path)
-            df_raw.clear()
-            file_raw.clear()
+    
+    # 遍历 csv_origin 下的所有二级文件夹
+    for subfolder in os.listdir(origin_data_folder):
+        subfolder_path = os.path.join(origin_data_folder, subfolder)
+        # 确保是文件夹（只处理二级目录）
+        if os.path.isdir(subfolder_path):
+            # 初始化当前文件夹的三类数据列表
+            autocap_data_raw = {'df_list':[], 'cell_no_list': []}
+            pulse_data_raw = []  # TODO sp修改
+
+            # 创建当前文件夹对应的历史目录
+            history_folder_path = os.path.join(history_data_folder, subfolder, datetime.now().strftime("%Y%m%d"))
+            os.makedirs(history_folder_path, exist_ok=True)
             
+            # 遍历当前二级文件夹下的 CSV 文件
+            for filename in os.listdir(subfolder_path):
+                if filename.endswith('.csv'):
+                    origin_path = os.path.join(subfolder_path, filename)
+                    history_path = os.path.join(history_folder_path, filename)
+                    error_path = os.path.join('csv_error', subfolder, filename)
+                    os.makedirs(os.path.dirname(error_path), exist_ok=True)
+                    
+                    file_id = filename.split('.')[0]
+                    try:
+                        df = pd.read_csv(origin_path)
+
+                        # 提取容量计算数据
+                        select_capacity_data(autocap_data_raw, filename, df)
+
+                        # TODO sp修改：处理脉冲数据
+                        if filename.startswith('plus'):
+                            pulse_data_raw.append(df)
+
+                    except Exception as e:
+                        shutil.move(origin_path, error_path)
+                        log.logger.error(f"读取文件失败: {traceback.print_exc()}")
+                        log.logger.error(f"文件夹 {subfolder} 中的文件 {file_id} 格式错误，已移至错误目录")
+                        continue
+            
+            # 处理当前二级文件夹的数据，仅传入二级文件夹名称
+            if autocap_data_raw:
+                alg_rlt = alg_execution(autocap_data_raw, pulse_data_raw, subfolder, log)
+                log.logger.info(f"文件夹 {subfolder} 数据处理完成，返回码: {alg_rlt['ErrorCode'][0]}")
+                
+                if alg_rlt['ErrorCode'][0] == 0:
+                    log.logger.info(f"文件夹 {subfolder} 生成报告成功")
+                else:
+                    log.logger.error(f"文件夹 {subfolder} 生成报告失败，原因: {alg_rlt['ErrorCode'][2]}")
+
 '''
 @ 触发一次kafka，就生成一次报告，并通知监测平台
 ''' 
