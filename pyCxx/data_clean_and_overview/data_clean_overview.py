@@ -101,8 +101,6 @@ def add_out_dir_info(rlt_res, key, value, confidence, explanation):
     confidence: 可信度信息 [-10, 10]  正值代表可信度，值越大，可信度越高， 负值表示异常， 值越小，异常等级越高
     explanation : 对可信度值的解释
     """
-    # rlt_res['out'][key] = value
-
     # 初始化指定的键
     rlt_res['out'][key] = []
     # 添加总电压、默认值和可信度
