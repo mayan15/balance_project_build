@@ -136,7 +136,7 @@ class BatteryHPPCAnalysis:
                 return index
         return len(self.ocv_lfp) - 1
 
-    def _cal_cell_soh_soc(self, start_ocv, end_ocv, test_plus_cnt, cell_type=2):
+    def _cal_cell_soh_soc(self, start_ocv, end_ocv, test_pulse_cnt, cell_type=2):
         one_time_soh = 50  # 0.5Ah for once discharge
         if cell_type == 1:   # mcn
             soc_start = self.ocv_to_soc(start_ocv)
@@ -148,7 +148,7 @@ class BatteryHPPCAnalysis:
             soc_end = self.soc_lfp[self.get_lfp_soc_for_ocv(end_ocv)]
             diff_soc = soc_start - soc_end
             self.soc = self.soc_lfp[self.get_lfp_soc_for_ocv(end_ocv)]
-        return [round((one_time_soh*test_plus_cnt)/diff_soc, 2), round(self.soc, 1)]
+        return [round((one_time_soh*test_pulse_cnt)/diff_soc, 2), round(self.soc, 1)]
 
     def output_cell_characteristisc(self, scan_interval_list, relax_vol_list, cur=50):
         # 三次幂带边界条件
@@ -171,15 +171,15 @@ class BatteryHPPCAnalysis:
         return [self.ocv * 1000, self.start_vol * 1000, self.end_vol * 1000, self.tau, self.dir1_resistance,
                 self.dir2_resistance, self.mse, self.r1, self.capacitor, self.r0]
 
-    def output_cell_dir(self, relax_vol_list, plus_on_time, plus_idle_time, cur =30):
+    def output_cell_dir(self, relax_vol_list, pulse_on_time, pulse_idle_time, cur =30):
         try:
             if cur > 1:
                 dir1 = np.abs(relax_vol_list[1] - relax_vol_list[0]) / cur
-                dir2 = np.abs(relax_vol_list[plus_on_time * 10] - relax_vol_list[plus_on_time * 10 - 1]) / cur
-                dir3 = np.abs(relax_vol_list[plus_on_time * 10] - relax_vol_list[1]) / cur
+                dir2 = np.abs(relax_vol_list[pulse_on_time * 10] - relax_vol_list[pulse_on_time * 10 - 1]) / cur
+                dir3 = np.abs(relax_vol_list[pulse_on_time * 10] - relax_vol_list[1]) / cur
                 dir4 = np.abs(
-                    relax_vol_list[plus_on_time * 10] - relax_vol_list[(plus_on_time + plus_idle_time) * 10 - 1]) / cur
-                dqdv = np.abs(cur*plus_on_time/(relax_vol_list[plus_on_time * 10 - 1] - relax_vol_list[1]))
+                    relax_vol_list[pulse_on_time * 10] - relax_vol_list[(pulse_on_time + pulse_idle_time) * 10 - 1]) / cur
+                dqdv = np.abs(cur*pulse_on_time/(relax_vol_list[pulse_on_time * 10 - 1] - relax_vol_list[1]))
                 return round(dir1, 5), round(dir2, 5), round(dir3, 5), round(dir4, 5), relax_vol_list[0], relax_vol_list[
                     -1], round(dqdv, 5)
 
@@ -244,7 +244,7 @@ class BatteryHPPCAnalysis:
         '''
         _pre_cell_value = []
         for item in ocv_list:
-            _pre_cell_value.append(item[0])  # before the first plus start ,this is the real start vol for cell
+            _pre_cell_value.append(item[0])  # before the first pulse start ,this is the real start vol for cell
 
         _np_pre_cell_first_ocv = np.array(_pre_cell_value)
 
@@ -666,7 +666,7 @@ class BatteryHPPCAnalysis:
         '''
         _pre_cell_value = []
         for item in relax_end_ocv:
-            _pre_cell_value.append(item[-1])  # before the first plus start ,this is the real start vol for cell
+            _pre_cell_value.append(item[-1])  # before the first pulse start ,this is the real start vol for cell
 
         _np_pre_cell_end_ocv = np.array(_pre_cell_value)
 
@@ -873,8 +873,8 @@ if __name__ == '__main__':
     bat_test = BatteryHPPCAnalysis()
 
     cell_no_list = [1, 32, 43, 60]
-    plus_idletime_list = [[70, 70, 70], [70, 70, 70], [70, 70, 70], [70, 70, 70]]
-    plus_cur_list = [[3000, 3000, 3001], [3000, 3000, 3001], [3000, 3000, 3001], (3000, 3000, 3001)]
+    pulse_idletime_list = [[70, 70, 70], [70, 70, 70], [70, 70, 70], [70, 70, 70]]
+    pulse_cur_list = [[3000, 3000, 3001], [3000, 3000, 3001], [3000, 3000, 3001], (3000, 3000, 3001)]
     ocv_list = [[3330, 3320, 3310], [3331, 3325, 3318], [3334, 3324, 3317], [3332, 3323, 3316]]
     relax_start_vol_list = [[3320, 3310, 3301], [3321, 3315, 3308], [3324, 3314, 3307], [3322, 3313, 3306]]
     relax_end_vol_list = [[3329, 3319, 3309], [3330, 3324, 3317], [3333, 3323, 3316], [3331, 3321, 3315]]
@@ -887,7 +887,7 @@ if __name__ == '__main__':
                       ['2024-7-09 12:35:12', '2024-7-09 12:35:30', '2024-7-09 12:36:01'],
                       ['2024-7-09 12:37:01', '2024-7-09 12:38:01', '2024-7-09 12:39:01']]
 
-    rlt = bat_test.output_report_character(104, cell_no_list, plus_idletime_list, plus_cur_list,
+    rlt = bat_test.output_report_character(104, cell_no_list, pulse_idletime_list, pulse_cur_list,
                                      ocv_list, relax_start_vol_list, relax_end_vol_list, line_res_list,
                                      tau_list, dir1_resistance_list, dir2_resistance_list, timestamp_list)
     # print(rlt)
