@@ -37,7 +37,7 @@ def send_report_msg(bootstrap_servers, topic, current_time, file_date, error_msg
     # 构造发送消息
     now = datetime.now()
     now.strftime("%Y-%m-%d %H:%M:%S")
-    startChargeSeq = file_date.split('.')[0][5:]
+    # startChargeSeq = file_date.split('.')[0][5:]
     data = {
         "code": code_id,
         "reportJson": report,
@@ -45,6 +45,7 @@ def send_report_msg(bootstrap_servers, topic, current_time, file_date, error_msg
         "msg": error_msg,
         "datetime": str(now)
     }
+    log.logger.debug(f"kafka消息内容：{data}" )
 
     # 发送消息到指定的 topic
     try:
