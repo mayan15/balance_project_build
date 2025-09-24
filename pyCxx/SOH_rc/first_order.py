@@ -77,7 +77,7 @@ class CalSOH:
         return cal_soc
 
     # cur: 2929
-    def cal_cell_soh_soc(self, start_ocv, end_ocv, cur, plus_cnt, cell_rate_soh, cell_type=1):
+    def cal_cell_soh_soc(self, start_ocv, end_ocv, cur, pulse_cnt, cell_rate_soh, cell_type=1):
         one_time_soh = cur/60
         if cell_type == 2:   # mcn  三元
             soc_start = self.ocv_to_soc(start_ocv)
@@ -89,7 +89,7 @@ class CalSOH:
             soc_end = self.get_lfp_soc_for_ocv(end_ocv)
             diff_soc = np.abs(soc_start - soc_end)
             # self.soc = self.soc_lfp[self.get_lfp_soc_for_ocv(end_ocv)]
-        cal_soh = round((one_time_soh*plus_cnt)/diff_soc, 2)
+        cal_soh = round((one_time_soh*pulse_cnt)/diff_soc, 2)
         if cal_soh > cell_rate_soh:
             cal_soh = 0
         return [cal_soh, round(soc_start, 1), round(soc_end, 1)]
@@ -161,7 +161,7 @@ class FirstOrderFit:
         initial_guess = np.array([0.0001, 0.0001, 60000])  # 初始参数猜测值，可变更
         # bounds = [(0.0001, 0.1), (0.0001, 0.1), (100, 100000)]  # 上下界[(第一个参数的)，(第二个参数的)，(第三个参数的)]
         bounds = [(0.0001, 0.1), (0.0001, 1), (100, 100000)]  # 上下界[(第一个参数的)，(第二个参数的)，(第三个参数的)]
-        #bounds = [(0.001, 0.1), (0.01, 1), (100, 50000)]  # 上下界[(第一个参数的)，(第二个参数的)，(第三个参数的)]
+        # bounds = [(0.001, 0.1), (0.01, 1), (100, 50000)]  # 上下界[(第一个参数的)，(第二个参数的)，(第三个参数的)]
         # bounds = ([0.0001, 0.0001, 1000], [0.1, 1, 100000])   # least_squares
         # 设置最大迭代次数
         options = {'maxiter': 10000}  # 例如，最大迭代100次
@@ -208,10 +208,10 @@ def _relax_vol_fit_ecm(time_s, vol_V, cur_A, dt_s, vol_start, vol_end, weight_ar
     return tau, R0, R1, C1, x, y, rmse
 
 
-# 计算分析全部的Plus数据
-def analyse_cell_plus_data(dir_plus_data, cell_type, use_year, cell_rate_soh=0):
+# 计算分析全部的pulse数据
+def analyse_cell_pulse_data(dir_pulse_data, cell_type, use_year, cell_rate_soh=0):
     try:
-        # all_plus_rlt_list = []    # 所有电芯的测试结果--- 按照列表-字典的形式进行存储
+        # all_pulse_rlt_list = []    # 所有电芯的测试结果--- 按照列表-字典的形式进行存储
         all_tau_dir = {}    # 所有电芯的测试结果--- 按照字典-字典的形式进行存储
         # 以下存放每一节电芯计算结果最合适的值
         cell_id_list = []
@@ -221,18 +221,18 @@ def analyse_cell_plus_data(dir_plus_data, cell_type, use_year, cell_rate_soh=0):
         best_r1_list = []
         best_r0_cur_down_list = []
         # 所有电芯的检测数据
-        for cell_id, data_dir in dir_plus_data.items():
+        for cell_id, data_dir in dir_pulse_data.items():
             tau_value_dir =  {'start_vol': [] , 'end_vol': [] , 'start_soc': [], 'end_soc': [], 'tau': [], 'r0': [],'r1': [],'c1': [], 'rmse': [], 'r0_cur_down': [], 'best_index': -1}
             # cell_no = 'B'+ str(cell_id)
-            cell_plus_vol_list = data_dir['plus_vol']
-            cell_plus_cur_list = data_dir['plus_cur']
-            cell_plus_time = data_dir['time']
+            cell_pulse_vol_list = data_dir['pulse_vol']
+            cell_pulse_cur_list = data_dir['pulse_cur']
+            cell_pulse_time = data_dir['time']
             
             # 针对某一节电芯所有的测试数据 
-            for i, value in enumerate(cell_plus_vol_list):
-                select_volts = np.array(cell_plus_vol_list[i])
-                select_current = np.array(cell_plus_cur_list[i])
-                select_time = cell_plus_time
+            for i, value in enumerate(cell_pulse_vol_list):
+                select_volts = np.array(cell_pulse_vol_list[i])
+                select_current = np.array(cell_pulse_cur_list[i])
+                select_time = cell_pulse_time
                 # 对数据列进行处理
                 dt = select_time[0]
                 dt_list = []
@@ -321,7 +321,7 @@ def analyse_cell_plus_data(dir_plus_data, cell_type, use_year, cell_rate_soh=0):
                 # cal_soh = CalSOH()
                 # cal_ah, soc_start, soc_end = cal_soh.cal_cell_soh_soc(select_volts[1300], select_volts[-1], select_current[2], 3, cell_rate_soh, cell_type)
                 
-                tau_value_dir['start_vol'].append(select_volts[1300])
+                tau_value_dir['start_vol'].append(select_volts[0])
                 tau_value_dir['end_vol'].append(select_volts[-1])
 
                 if max(select_current) > 100:
@@ -386,8 +386,8 @@ def analyse_cell_plus_data(dir_plus_data, cell_type, use_year, cell_rate_soh=0):
         return  all_tau_dir, cell_id_list, best_tau_list, best_tau_start_vol_list, best_r0_list, best_r1_list, best_r0_cur_down_list
 
     except Exception as e:
-        log.logger.error(f"analyse_cell_plus_data error: {traceback.print_exc()}")
-        raise RuntimeError(f'analyse_cell_plus_data函数出错,{e}') from e
+        log.logger.error(f"analyse_cell_pulse_data error: {traceback.print_exc()}")
+        raise RuntimeError(f'analyse_cell_pulse_data函数出错,{e}') from e
     
 
 
@@ -408,6 +408,19 @@ def add_out_dir_info(rlt_res, key, value, confidence, explanation):
     rlt_res['out'][key].append(confidence)
     rlt_res['out'][key].append(explanation)
 
+def invalid_result_handle(rlt_res):
+    """处理无效结果"""
+    add_out_dir_info(rlt_res, '内阻计算全部结果值', 'N/A', '', '')
+    add_out_dir_info(rlt_res, '内阻计算电芯号', 'N/A', '', '')
+    add_out_dir_info(rlt_res, '内阻计算电芯起始电压值', 'N/A', '', '')
+    add_out_dir_info(rlt_res, '内阻计算直流内阻值', 'N/A', '', '')
+    add_out_dir_info(rlt_res, '内阻计算tau值', 'N/A', '', '')
+    add_out_dir_info(rlt_res, '内阻计算R0值', 'N/A', '', '')
+    add_out_dir_info(rlt_res, '内阻计算R1值', 'N/A', '', '')
+    add_out_dir_info(rlt_res, '内阻值异常电芯号', 'N/A', '', '')
+    add_out_dir_info(rlt_res, '内阻计算异常说明', '详见fist_order.log', '', '')
+    add_out_dir_info(rlt_res, '说明', '内阻测试没有有效数据或计算结果。', '', '')
+    add_out_dir_info(rlt_res, '建议', '暂无建议。', '', '')
 
 def run(df_raw, data_clean_rlt):
     """
@@ -420,7 +433,7 @@ def run(df_raw, data_clean_rlt):
     try:
         rlt_res = {
         "code_id": 1,
-        "describe": "plus",
+        "describe": "pulse",
         "out": {},
         "summary": [],
         "table": [],
@@ -431,28 +444,42 @@ def run(df_raw, data_clean_rlt):
         advice= '/'
 
         st = time.time()
-        all_tau_rlt, cell_id_list, best_tau_list, best_tau_start_vol_list, best_r0_list, best_r1_list, best_r0_cur_down_list = analyse_cell_plus_data(df_raw, data_clean_rlt['out']['battery_type'][0], 5, data_clean_rlt['out']['battery_capacity'][0])
+        all_tau_rlt, cell_id_list, best_tau_list, best_tau_start_vol_list, best_r0_list, best_r1_list, best_r0_cur_down_list = analyse_cell_pulse_data(df_raw, data_clean_rlt['out']['battery_type'][0], 5, data_clean_rlt['out']['battery_capacity'][0])
+
+        # # 20250916 my添加 手动制造异常结果
+        # best_r0_cur_down_list[0] = np.max(best_r0_cur_down_list) * 3
 
         # 判断结果值对比可信度
         if len(best_tau_start_vol_list) > 1:
             # 找出最大和最小的内阻值，以及对应的index 
             max_r0_cur_down_index = np.argmax(best_r0_cur_down_list)
             min_r0_cur_down_index = np.argmin(best_r0_cur_down_list)
+            median_r0_cur_down = np.median(best_r0_cur_down_list)
+
+            # 设定阈值，并找出超过中值内阻值的50%，为异常电芯
+            max_r0_cur_down_threshold = 0.5
+            dcir_abnormal_cell_no_list = [id for r,id in zip(best_r0_cur_down_list, cell_id_list) if r > median_r0_cur_down * (1 + max_r0_cur_down_threshold)]
+            dcir_abnormal_cell_no_str = ','.join(str(i) for i in dcir_abnormal_cell_no_list) if len(dcir_abnormal_cell_no_list) > 0 else '/'
+
             dec_r0_cur_down = round(best_r0_cur_down_list[max_r0_cur_down_index] - best_r0_cur_down_list[min_r0_cur_down_index],2)
+            ratio_dec_r0_cur_down = dec_r0_cur_down / best_r0_cur_down_list[max_r0_cur_down_index]
             
             vol_dec = np.max(best_tau_start_vol_list) - np.min(best_tau_start_vol_list)
-            if vol_dec < 0.01:  # 差值小于0.01，认为结果可信
-               if dec_r0_cur_down < 0.004:  
-                    summary= f'内阻差值{dec_r0_cur_down}mΩ，最大内阻值{best_r0_cur_down_list[max_r0_cur_down_index]}mΩ，最小内阻值{best_r0_cur_down_list[min_r0_cur_down_index]}mΩ, 内阻一致性正常'  
-               elif dec_r0_cur_down < 0.01:
-                    summary= f'内阻差值{dec_r0_cur_down}mΩ，最大内阻值{best_r0_cur_down_list[max_r0_cur_down_index]}mΩ，最小内阻值{best_r0_cur_down_list[min_r0_cur_down_index]}mΩ，内阻一致性较差'
-               elif dec_r0_cur_down < 0.02:
-                    summary= f'内阻差值{dec_r0_cur_down}mΩ，最大内阻值{best_r0_cur_down_list[max_r0_cur_down_index]}mΩ，最小内阻值{best_r0_cur_down_list[min_r0_cur_down_index]}mΩ，内阻一致性差'
-                    advice= f'电池组内阻一致性存在问题，建议对内阻较大的电芯进行二次测试确认，若仍存在，建议更换'
+            if vol_dec < 0.015:  # 差值小于0.01，认为结果可信
+               if len(dcir_abnormal_cell_no_list) == 0:  
+                    summary= f'进行内阻测试的{len(cell_id_list)}节电芯中，内阻差值{dec_r0_cur_down}mΩ，最大内阻值{best_r0_cur_down_list[max_r0_cur_down_index]}mΩ，最小内阻值{best_r0_cur_down_list[min_r0_cur_down_index]}mΩ, 内阻一致性正常。'  
+                    advice = '暂无建议。'
+            #    elif ratio_dec_r0_cur_down < 0.5:
+            #         summary= f'进行内阻测试的{len(cell_id_list)}节电芯中，内阻差值{dec_r0_cur_down}mΩ，最大内阻值{best_r0_cur_down_list[max_r0_cur_down_index]}mΩ，最小内阻值{best_r0_cur_down_list[min_r0_cur_down_index]}mΩ，内阻一致性较差。'
+            #         advice = '暂无建议'
+               else:
+                    summary= f'进行内阻测试的{len(cell_id_list)}节电芯中，内阻差值{dec_r0_cur_down}mΩ，最大内阻值{best_r0_cur_down_list[max_r0_cur_down_index]}mΩ，最小内阻值{best_r0_cur_down_list[min_r0_cur_down_index]}mΩ，内阻一致性差。'
+                    advice = f'电池组内阻一致性存在问题，建议对内阻较大的异常电芯进行二次测试确认，若仍存在，建议更换。'
             else:
-                summary = f'内阻差值{dec_r0_cur_down}mΩ，最大内阻值{best_r0_cur_down_list[max_r0_cur_down_index]}mΩ，最小内阻值{best_r0_cur_down_list[min_r0_cur_down_index]}mΩ'
-                advice = f'电池组电压值存在差别，该内阻值仅供参考'
-
+                summary = f'进行内阻测试的{len(cell_id_list)}节电芯中，内阻差值{dec_r0_cur_down}mΩ，最大内阻值{best_r0_cur_down_list[max_r0_cur_down_index]}mΩ，最小内阻值{best_r0_cur_down_list[min_r0_cur_down_index]}mΩ。'
+                advice = f'电池组电芯间电压值存在差别，该内阻值仅供参考。'
+        else:
+            dcir_abnormal_cell_no_str = '/'
         # 部分结果转为字符串
         cell_id_list_str = ','.join(str(i) for i in cell_id_list)
         best_tau_start_vol_list_str = ','.join(str(i) for i in best_tau_start_vol_list)
@@ -462,14 +489,15 @@ def run(df_raw, data_clean_rlt):
         best_r1_list_str = ','.join(str(i) for i in best_r1_list)
 
         # tau值计算结果
-        add_out_dir_info(rlt_res, 'DCR计算全部结果值', all_tau_rlt, '', '')
-        add_out_dir_info(rlt_res, 'DCR计算电芯号', cell_id_list_str, '','')
-        add_out_dir_info(rlt_res, 'DCR计算电芯起始电压值', best_tau_start_vol_list_str, '','')
-        add_out_dir_info(rlt_res, 'DCR计算直流内阻值', best_r0_cur_down_list_str, '','')
-        add_out_dir_info(rlt_res, 'DCR计算tau值', best_tau_list_str, '','')
-        add_out_dir_info(rlt_res, 'DCR计算R0值', best_r0_list_str, '','')
-        add_out_dir_info(rlt_res, 'DCR计算R1值', best_r1_list_str, '','')
-        add_out_dir_info(rlt_res, 'DCR计算异常说明', '', '', '')
+        add_out_dir_info(rlt_res, '内阻计算全部结果值', all_tau_rlt, '', '')
+        add_out_dir_info(rlt_res, '内阻计算电芯号', cell_id_list_str, '','')
+        add_out_dir_info(rlt_res, '内阻计算电芯起始电压值', best_tau_start_vol_list_str, '','')
+        add_out_dir_info(rlt_res, '内阻计算直流内阻值', best_r0_cur_down_list_str, '','')
+        add_out_dir_info(rlt_res, '内阻计算tau值', best_tau_list_str, '','')
+        add_out_dir_info(rlt_res, '内阻计算R0值', best_r0_list_str, '','')
+        add_out_dir_info(rlt_res, '内阻计算R1值', best_r1_list_str, '','')
+        add_out_dir_info(rlt_res, '内阻值异常电芯号', dcir_abnormal_cell_no_str, '', '')
+        add_out_dir_info(rlt_res, '内阻计算异常说明', '', '', '')
         add_out_dir_info(rlt_res, '说明', summary, '','')
         add_out_dir_info(rlt_res, '建议', advice, '','')
         log.logger.debug(f"tau calculate time: {round(time.time()-st,2)} seconds")
@@ -477,7 +505,6 @@ def run(df_raw, data_clean_rlt):
     except Exception as e:
         rlt_res['ErrorCode'][0] = 1001
         log.logger.error(f"first_order_fit error: {traceback.print_exc()}")
-        add_out_dir_info(rlt_res, 'DCR计算全部结果值', 'N/A', '', '')
-        add_out_dir_info(rlt_res, 'DCR计算异常说明', '详见fist_order.log', '', '')
+        invalid_result_handle(rlt_res)
         return rlt_res
           
