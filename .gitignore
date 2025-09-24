@@ -23,6 +23,11 @@ __pycache__/
 
 # PyInstaller spec 文件
 *.spec
+.vscode
 
 # 有密码不让git推送
 kafkaconfig.ini
+
+# 日志和结果文件
+logs/*.log*
+*.json
