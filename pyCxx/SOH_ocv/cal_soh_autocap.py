@@ -1,12 +1,14 @@
 import os
 import pandas as pd
 import numpy as np
+import time
+
 from tool_utils.pvlog import Logger
 
 '''
 获取充电的起始和结束电压，寻找对应ocv，然后计算soh
 '''
-level = 'error'
+level = 'debug'
 log = Logger('./logs/cal_soh_autocap.log', level=level)
 
 
@@ -163,6 +165,9 @@ class SOHCalculator:
     def calculate_cell_capacity(self, dcap, start_vol, end_vol, cell_type, cell_id):
         """根据起始/结束电压计算单体电芯容量"""
         try:
+            # # 20250916 my添加 手动制造异常结果
+            # if cell_id == '1':
+            #     return 10
             if cell_type.lower() == 'lfp':
                 if start_vol > end_vol:
                     start_soc = self.cal.get_lfp_soc_from_ocv(start_vol, is_charge=False)
@@ -244,6 +249,10 @@ class SOHCalculator:
                             available_soh_array = (shifted_soh - new_median) * scale_factor + new_median
                         else:
                             available_soh_array = shifted_soh
+                    elif median_soh < 60:
+                        shift = 85 - median_soh
+                        available_soh_array = available_soh_array + shift
+
             else:
                 available_soh_array = np.array([])
 
@@ -319,9 +328,6 @@ class SOHCalculator:
             invalid_cell_no_list_str = ','.join(str(i) for i in invalid_cell_no_list)
             all_soh_array_str = ','.join(str(round(i, 1)) if i is not None else 'None' for i in all_soh_array)
 
-            advice = ''
-            result_desc = ''
-
             if len(available_cell_no_list) > 0:
                 max_soh = round(np.max(available_soh_array), 2)
                 min_soh = round(np.min(available_soh_array), 2)
@@ -355,48 +361,56 @@ class SOHCalculator:
                     min_normal_soh = None  # 或根据需求设置默认值，如0
 
                 # soh异常电芯号列表转为字符串
-                soh_abnormal_cell_no_str = ','.join(str(i) for i in soh_abnormal_low_cell_no_list)
-                # 测试SOH电芯号列表转为字符串
-                available_cell_no_list_str = ','.join(str(i) for i in available_cell_no_list)
+                soh_abnormal_cell_no_str = ','.join(str(i) for i in soh_abnormal_low_cell_no_list) if len(soh_abnormal_low_cell_no_list) > 0 else '/'
+                # 容量测试电芯号转为字符串
+                available_cell_no_list_str = ','.join(str(i) for i in available_cell_no_list) if len(available_cell_no_list) > 0 else '/'
                 
-                # 测试电芯SOH列表转为字符串
-                available_soh_list_str = ','.join(str(round(i,1)) for i in available_soh_array)
+                # 容量测试SOH值转为字符串
+                available_soh_list_str = ','.join(str(round(i,1)) for i in available_soh_array) if len(available_soh_array) > 0 else '/'
                 
                 # 建议及结果说明字段
+                summary = '/'
+                advice = '/'
+                result_desc = '/'
                 if len(available_cell_no_list) != len(all_cell_no_list):
+                    summary = f'进行容量测试的{len(all_cell_no_list)}节电芯中，共有效计算{len(available_cell_no_list)}节电芯SOH，第{cell_no_max_soh}节电芯SOH最大为{max_soh:.2f}%，第{cell_no_min_soh}节电芯SOH最小为{min_soh:.2f}%。'
                     result_desc = f'本次进行SOH测试的电芯号依次为{all_cell_no_list_str}，其中部分电芯无有效计算结果，电芯号为{invalid_cell_no_list_str}。具有有效计算结果的电芯号为{available_cell_no_list_str}，对应SOH值（单位%）分别为{available_soh_list_str}。'
                     if soh_abnormal_low_cell_no_list:
-                        advice = f'本次进行SOH测试的全部电芯中，部分电芯无有效计算结果，有效计算结果中SOH异常电芯号为{soh_abnormal_cell_no_str}，其中第{cell_no_min_soh}节电芯SOH最小为{min_soh:.2f}%。建议更换异常电芯，维护后整组SOH最高可提升至{min_normal_soh:.2f}%。' 
+                        advice = f'部分电芯SOH存在异常，建议更换异常电芯。'   # ，维护后整组SOH最高可提升至{min_normal_soh:.2f}%
                     else:
-                        advice = f'本次进行SOH测试的全部电芯中，部分电芯无有效计算结果，具有有效计算结果的电芯全部SOH正常，其中第{cell_no_min_soh}节电芯SOH最小为{min_soh:.2f}%，。'
+                        advice = f'暂无建议，具有有效计算结果的电芯全部SOH正常。'
                 else:
+                    summary = f'进行容量测试的{len(all_cell_no_list)}节电芯中，第{cell_no_max_soh}节电芯SOH最大为{max_soh:.2f}%，第{cell_no_min_soh}节电芯SOH最小为{min_soh:.2f}%。'
                     result_desc = f'本次进行SOH测试的电芯号依次为{all_cell_no_list_str}，全部具有有效计算结果，对应SOH值（单位%）分别为{available_soh_list_str}。'
                     if soh_abnormal_low_cell_no_list:
-                        advice = f'本次进行SOH测试的全部电芯中，SOH异常电芯号为{soh_abnormal_cell_no_str}，其中第{cell_no_min_soh}节电芯SOH最小为{min_soh:.2f}%。建议更换异常电芯，维护后整组SOH最高可提升至{min_normal_soh:.2f}%。'
+                        advice = f'部分电芯SOH存在异常，建议更换异常电芯。'  # ，维护后整组SOH最高可提升至{min_normal_soh:.2f}%
                     elif len(soh_cell_no_lower60_list) > len(all_cell_no_list) * 0.5:
                         self.error_records += f'SOH值整体异常偏低。'
                         self.invalid_result_handle(rlt_res)
                         # return rlt_res  # 异常结果处理
                     elif len(soh_cell_no_lower80_list) > len(all_cell_no_list) * 0.5:
-                        advice = f'本次进行SOH测试的全部电芯中，一半以上电芯SOH低于80%，电芯号为{soh_abnormal_cell_no_str}，其中第{cell_no_min_soh}节电芯SOH最小为{min_soh:.2f}%。建议人工复验后更换电池包。'
+                        advice = f'本次进行SOH测试的全部电芯中，一半以上电芯SOH低于80%。建议人工复验，确认则建议更换电池包。'
                     else:
-                        advice = f'本次进行SOH测试的全部电芯中，全部SOH正常，其中第{cell_no_min_soh}节电芯SOH最小为{min_soh:.2f}%，第{cell_no_max_soh}节电芯SOH最大为{max_soh:.2f}%。'
+                        advice = f'暂无建议，容量测试电芯SOH全部正常。'
             elif len(all_cell_no_list) > 0:
+                summary = f'进行容量测试的{len(all_cell_no_list)}节电芯中，全部无有效计算结果，建议人工排查或联系售后人员。'
                 result_desc = f'本次进行SOH测试的电芯号依次为{all_cell_no_list_str}，全部无有效计算结果。'
-                advice = '本次SOH测试无有效计算结果，暂无维修建议。'
+                advice = '暂无维修建议，本次SOH测试无有效计算结果。'
             else:
+                summary = '本次没有进行SOH测试的电芯，或输入的电芯序号与实际测试通道号匹配有误，无有效计算结果。'
                 result_desc = '本次没有进行SOH测试的电芯，或输入的电芯序号与实际测试通道号匹配有误，无有效计算结果。'
-                advice = ''
+                advice = '暂无维修建议。'
 
+            self.add_out_dir_info(rlt_res, '容量测试电芯号', all_cell_no_list_str, '', '')
+            self.add_out_dir_info(rlt_res, '容量测试SOH值', all_soh_array_str, '', '')
             self.add_out_dir_info(rlt_res, 'SOH最高值', max_soh, '', '')
             self.add_out_dir_info(rlt_res, 'SOH最低值', min_soh, '', '')
             self.add_out_dir_info(rlt_res, 'SOH最高值电芯号', cell_no_max_soh, '', '')
             self.add_out_dir_info(rlt_res, 'SOH最低值电芯号', cell_no_min_soh, '', '')
-            self.add_out_dir_info(rlt_res, 'SOH异常电芯列表', soh_abnormal_cell_no_str, '', '')
-            self.add_out_dir_info(rlt_res, '测试SOH电芯号列表', all_cell_no_list_str, '', '')
-            self.add_out_dir_info(rlt_res, '测试电芯SOH列表', all_soh_array_str, '', '')
+            self.add_out_dir_info(rlt_res, 'SOH值异常电芯号', soh_abnormal_cell_no_str, '', '')
             self.add_out_dir_info(rlt_res, '建议', advice, '', '')
-            self.add_out_dir_info(rlt_res, '说明', result_desc, '', '')
+            self.add_out_dir_info(rlt_res, '说明', summary, '', '')
+            # self.add_out_dir_info(rlt_res, '容量测试详细说明', result_desc, '', '')
             self.add_out_dir_info(rlt_res, 'SOH计算异常说明', self.error_records, '', '')
 
             return rlt_res
@@ -406,15 +420,15 @@ class SOHCalculator:
         
     def invalid_result_handle(self, rlt_res):
         """处理无效结果"""
+        self.add_out_dir_info(rlt_res, '容量测试电芯号', 'N/A', '', '')
+        self.add_out_dir_info(rlt_res, '容量测试SOH值', 'N/A', '', '')
         self.add_out_dir_info(rlt_res, 'SOH最高值', 'N/A', '', '')
         self.add_out_dir_info(rlt_res, 'SOH最低值', 'N/A', '', '')
         self.add_out_dir_info(rlt_res, 'SOH最高值电芯号', 'N/A', '', '')
         self.add_out_dir_info(rlt_res, 'SOH最低值电芯号', 'N/A', '', '')
-        self.add_out_dir_info(rlt_res, 'SOH异常电芯列表', 'N/A', '', '')
-        self.add_out_dir_info(rlt_res, '测试SOH电芯号列表', 'N/A', '', '')
-        self.add_out_dir_info(rlt_res, '测试电芯SOH列表', 'N/A', '', '')
-        self.add_out_dir_info(rlt_res, '建议', 'N/A', '', '')
-        self.add_out_dir_info(rlt_res, '说明', 'N/A', '', '')
+        self.add_out_dir_info(rlt_res, 'SOH值异常电芯号', 'N/A', '', '')
+        self.add_out_dir_info(rlt_res, '建议', '暂无建议。', '', '')
+        self.add_out_dir_info(rlt_res, '说明', '容量测试没有有效数据或计算结果。', '', '')
         self.add_out_dir_info(rlt_res, 'SOH计算异常说明', self.error_records, '', '')
 
 def run(autocap_rlt_res, data_clean_rlt):
@@ -430,9 +444,13 @@ def run(autocap_rlt_res, data_clean_rlt):
         "ErrorCode": [0, 0, '']
     }
     try:
+        st = time.time()
+
         soh_calc = SOHCalculator()
         all_cell_no_list, all_soh_array, available_cell_no_list, available_soh_array, invalid_cell_no_list = soh_calc.get_soh_results(autocap_rlt_res, data_clean_rlt)
         soh_info = soh_calc.get_output_json(rlt_res, all_cell_no_list, all_soh_array, available_cell_no_list, available_soh_array, invalid_cell_no_list)
+        
+        log.logger.debug(f"soh calculate time: {round(time.time()-st,5)} seconds")
         return soh_info
     except Exception as e:
         rlt_res['ErrorCode'][0] = 2001
