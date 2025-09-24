@@ -1,12 +1,14 @@
 import os
 import pandas as pd
 import numpy as np
+import time
+
 from tool_utils.pvlog import Logger
 
 '''
 获取充电的起始和结束电压，寻找对应ocv，然后计算soh
 '''
-level = 'error'
+level = 'debug'
 log = Logger('./logs/consist_balance_data.log', level=level)
 
 
@@ -48,7 +50,8 @@ class VoltageCapacityConsistency:
         self.max_diff_dcap_balance_ah = None
         self.max_ratio_diff_dcap_balance_percent = None
         self.ratio_diff_dcap_balance_percent = None
-        self.abnormal_cell_no_list = None
+        self.abnormal_cell_no_start_list = None
+        self.abnormal_cell_no_end_list = None
 
         # 异常记录
         self.error_records = ''
@@ -68,7 +71,8 @@ class VoltageCapacityConsistency:
             max_volt_end = 0
             min_cell_no_end_list = []
             max_cell_no_end_list = []
-            abnormal_cell_no_list = []
+            abnormal_cell_no_start_list = []
+            abnormal_cell_no_end_list = []
 
             # 获取电压极值以及初始/结束电压列表
             start_vol_list = []
@@ -116,18 +120,20 @@ class VoltageCapacityConsistency:
             #     for i, cell_no in enumerate(self.cell_no_list):
             #         cell_id = str(cell_no)
             #         if end_vol_list[i] - max(end_vol_list) > self.diff_vol_mv_threshold:
-            #             abnormal_cell_no_list.append(cell_no)
+            #             abnormal_cell_no_end_list.append(cell_no)
             # else:
             #     for i, cell_no in enumerate(self.cell_no_list):
             #         cell_id = str(cell_no)
             #         if end_vol_list[i] - min(end_vol_list) > self.diff_vol_mv_threshold:
-            #             abnormal_cell_no_list.append(cell_no)
+            #             abnormal_cell_no_end_list.append(cell_no)
 
             # 判断电压偏低的电芯保存至abnormal_cell_no_list
             for i, cell_no in enumerate(self.cell_no_list):
                 cell_id = str(cell_no)
                 if max(end_vol_list) - end_vol_list[i]  > self.diff_vol_mv_threshold:
-                    abnormal_cell_no_list.append(cell_no)
+                    abnormal_cell_no_end_list.append(cell_no)
+                if max(start_vol_list) - start_vol_list[i]  > self.diff_vol_mv_threshold:
+                    abnormal_cell_no_start_list.append(cell_no)
             
             # 保存在类
             self.min_volt_start = min_volt_start
@@ -142,7 +148,8 @@ class VoltageCapacityConsistency:
             self.end_vol_list = end_vol_list
             self.max_diff_vol_start_mv = round(max_diff_vol_start, 2)
             self.max_diff_vol_end_mv = round(max_diff_vol_end, 2)
-            self.abnormal_cell_no_list = abnormal_cell_no_list
+            self.abnormal_cell_no_start_list = abnormal_cell_no_start_list
+            self.abnormal_cell_no_end_list = abnormal_cell_no_end_list
 
             return
         except Exception as e:
@@ -202,28 +209,33 @@ class VoltageCapacityConsistency:
         try:
 
             # 判断最高单体电压值、最高单体电芯号、最低单体电压值、最低单体电芯号的列表是否有效，有效全部转化为字符串，无效则赋值为''
-            min_cell_no_start_str = ','.join(str(i) for i in self.min_cell_no_start_list) if self.min_cell_no_start_list is not None else ''
-            max_cell_no_start_str = ','.join(str(i) for i in self.max_cell_no_start_list) if self.max_cell_no_start_list is not None else ''
-            min_cell_no_end_str = ','.join(str(i) for i in self.min_cell_no_end_list) if self.min_cell_no_end_list is not None else ''
-            max_cell_no_end_str = ','.join(str(i) for i in self.max_cell_no_end_list) if self.max_cell_no_end_list is not None else ''
+            min_cell_no_start_str = ','.join(str(i) for i in self.min_cell_no_start_list) if len(self.min_cell_no_start_list) > 0 else '/'
+            max_cell_no_start_str = ','.join(str(i) for i in self.max_cell_no_start_list) if len(self.max_cell_no_start_list) > 0 else '/'
+            min_cell_no_end_str = ','.join(str(i) for i in self.min_cell_no_end_list) if len(self.min_cell_no_end_list) > 0 else '/'
+            max_cell_no_end_str = ','.join(str(i) for i in self.max_cell_no_end_list) if len(self.max_cell_no_end_list) > 0 else '/'
 
             # 判断电压一致性异常电芯列表是否有效，有效全部转化为字符串，无效则赋值为''
-            abnormal_cell_no_str = ','.join(str(i) for i in self.abnormal_cell_no_list) if self.abnormal_cell_no_list is not None else ''
+            abnormal_cell_no_start_str = ','.join(str(i) for i in self.abnormal_cell_no_start_list) if len(self.abnormal_cell_no_start_list) > 0 else '/'
+            abnormal_cell_no_end_str = ','.join(str(i) for i in self.abnormal_cell_no_end_list) if len(self.abnormal_cell_no_end_list) > 0 else '/'
 
             # 判断容量变化、容量偏差占比列表是否有效，有效全部转化为字符串，无效则赋值为'' 
-            dcap_array_ah_str = ','.join(str(i) for i in self.dcap_array_ah) if self.dcap_array_ah is not None else ''
-            ratio_diff_dcap_balance_percent_str = ','.join(str(i) for i in self.ratio_diff_dcap_balance_percent) if self.ratio_diff_dcap_balance_percent is not None else ''
+            dcap_array_ah_str = ','.join(str(i) for i in self.dcap_array_ah) if len(self.dcap_array_ah) > 0 else '/'
+            ratio_diff_dcap_balance_percent_str = ','.join(str(i) for i in self.ratio_diff_dcap_balance_percent) if len(self.ratio_diff_dcap_balance_percent) > 0 else '/'
             
 
             # 判断均衡起始电压列表、均衡结束电压列表是否有效，有效全部转化为字符串，无效则赋值为''
-            start_vol_str = ','.join(str(i) for i in self.start_vol_list) if self.start_vol_list is not None else ''
-            end_vol_str = ','.join(str(i) for i in self.end_vol_list) if self.end_vol_list is not None else ''
+            start_vol_str = ','.join(str(i) for i in self.start_vol_list) if len(self.start_vol_list) > 0 else '/'
+            end_vol_str = ','.join(str(i) for i in self.end_vol_list) if len(self.end_vol_list) > 0 else '/'
 
             # 全部测试电芯转化为字符串
-            cell_no_str = ','.join(str(i) for i in self.cell_no_list) if len(self.cell_no_list) > 0 else ''
+            cell_no_str = ','.join(str(i) for i in self.cell_no_list) if len(self.cell_no_list) > 0 else '/'
 
             # 建议及结果说明字段
+            summary = '/'
+            advice = '/'
+            result_desc = '/'
             if len(self.cell_no_list) > 0:
+                summary = f'进行均衡测试的电芯共{len(self.cell_no_list)}节，均衡前最大压差为{self.max_diff_vol_start_mv}mV，均衡后最大压差为{self.max_diff_vol_end_mv}mV，单电芯均衡容量最多为{max(self.dcap_array_ah)}Ah，最少为{min(self.dcap_array_ah)}Ah。若有同个电芯进行了多次测试，以最后一次测试结果为准。'
                 result_desc = f'本次进行均衡测试的电芯号依次为{cell_no_str}，其中均衡前第{max_cell_no_start_str}节电芯电压最高为{self.max_volt_start}V，\
                     第{min_cell_no_start_str}节电芯电压最低为{self.min_volt_start}V，\
                     均衡后第{max_cell_no_end_str}节电芯电压最高为{self.max_volt_end}V，\
@@ -233,38 +245,46 @@ class VoltageCapacityConsistency:
                     详细信息如下：均衡前电压依次为{start_vol_str}V，均衡后电压依次为{end_vol_str}V，\
                     均衡充入/放出容量依次为{dcap_array_ah_str}，均衡前容量偏差占标称容量比例依次为{ratio_diff_dcap_balance_percent_str}%。\
                     若有同个电芯进行了多次测试，以最后一次测试结果为准。'
-                if len(self.abnormal_cell_no_list) > 0:
-                    advice = f'均衡结束时仍有一些电压偏低哦，电芯号为{abnormal_cell_no_str}，可以试试在低SOC均衡。'
+                if len(self.abnormal_cell_no_end_list) > 0:
+                    advice = f'均衡结束时仍有一些电压偏低哦，电芯号为{abnormal_cell_no_end_str}，可以试试在低SOC均衡。'
                 else:
-                    advice = f'均衡前最大压差为{self.max_diff_vol_start_mv}mV，均衡后最大压差为{self.max_diff_vol_end_mv}mV，\
-                        单电芯均衡容量最多的为{max(self.dcap_array_ah)}Ah，最少的为{min(self.dcap_array_ah)}Ah。'
+                    advice = f'暂无建议。'
             else:
+                summary = f'本次没有进行均衡测试的电芯，或输入的电芯序号与实际测试通道号匹配有误，无有效计算结果。'
                 result_desc = '本次没有进行均衡测试的电芯，或输入的电芯序号与实际测试通道号匹配有误，无有效计算结果。'
-                advice = ''
+                advice = '暂无建议。'
                 
             # 初始最大压差、结束最大压差保存至结果字典
             self.add_out_dir_info(rlt_res, '一致性评估全部结果', self.all_balance_rlt, '', '')
-            self.add_out_dir_info(rlt_res, '初始最大压差', self.max_diff_vol_start_mv, '', '')
-            self.add_out_dir_info(rlt_res, '结束最大压差', self.max_diff_vol_end_mv, '', '')
-            self.add_out_dir_info(rlt_res, '容差最大值', self.max_diff_dcap_balance_ah, '', '')
-            self.add_out_dir_info(rlt_res, '容差占比最大值', self.max_ratio_diff_dcap_balance_percent, '', '')
-            self.add_out_dir_info(rlt_res, '均衡前最高单体电压值', self.max_volt_start, '', '')
-            self.add_out_dir_info(rlt_res, '均衡前最高单体电芯号列表', max_cell_no_start_str, '', '')
-            self.add_out_dir_info(rlt_res, '均衡前最低单体电压值', self.min_volt_start, '', '')
-            self.add_out_dir_info(rlt_res, '均衡前最低单体电芯号列表', min_cell_no_start_str, '', '')
-            self.add_out_dir_info(rlt_res, '均衡后最高单体电压值', self.max_volt_end, '', '')
-            self.add_out_dir_info(rlt_res, '均衡后最高单体电芯号列表', max_cell_no_end_str, '', '')
-            self.add_out_dir_info(rlt_res, '均衡后最低单体电压值', self.min_volt_end, '', '')
-            self.add_out_dir_info(rlt_res, '均衡后最低单体电芯号列表', min_cell_no_end_str, '', '')
-            self.add_out_dir_info(rlt_res, '电压一致性异常电芯列表', abnormal_cell_no_str, '', '')
-            self.add_out_dir_info(rlt_res, '均衡起始电压列表', start_vol_str, '', '')
-            self.add_out_dir_info(rlt_res, '均衡结束电压列表', end_vol_str, '', '')
-            self.add_out_dir_info(rlt_res, '容差占比', ratio_diff_dcap_balance_percent_str, '', '')
+            self.add_out_dir_info(rlt_res, '均衡测试电芯号', cell_no_str, '', '')
+            self.add_out_dir_info(rlt_res, '均衡前电压值', start_vol_str, '', '')
+            self.add_out_dir_info(rlt_res, '均衡后电压值', end_vol_str, '', '')
+            self.add_out_dir_info(rlt_res, '均衡前一致性异常电芯号', abnormal_cell_no_start_str, '', '')
+            # self.add_out_dir_info(rlt_res, '均衡后电压一致性异常电芯号', abnormal_cell_no_end_str, '', '')
+
+            self.add_out_dir_info(rlt_res, '均衡前最大压差', self.max_diff_vol_start_mv, '', '')
+            self.add_out_dir_info(rlt_res, '均衡后最大压差', self.max_diff_vol_end_mv, '', '')
+
+            self.add_out_dir_info(rlt_res, '均衡前电压极值', max_cell_no_start_str+'号电芯电压最高为'+str(self.max_volt_start)+'V，'+min_cell_no_start_str+'号电芯电压最低为'+str(self.min_volt_start)+'V', '', '')
+            self.add_out_dir_info(rlt_res, '均衡后电压极值', max_cell_no_end_str+'号电芯电压最高为'+str(self.max_volt_end)+'V，'+min_cell_no_end_str+'号电芯电压最低为'+str(self.min_volt_end)+'V', '', '')
+
+            # self.add_out_dir_info(rlt_res, '均衡前最高单体电压值', self.max_volt_start, '', '')
+            # self.add_out_dir_info(rlt_res, '均衡前最高单体电芯号', max_cell_no_start_str, '', '')
+            # self.add_out_dir_info(rlt_res, '均衡前最低单体电压值', self.min_volt_start, '', '')
+            # self.add_out_dir_info(rlt_res, '均衡前最低单体电芯号', min_cell_no_start_str, '', '')
+            # self.add_out_dir_info(rlt_res, '均衡后最高单体电压值', self.max_volt_end, '', '')
+            # self.add_out_dir_info(rlt_res, '均衡后最高单体电芯号', max_cell_no_end_str, '', '')
+            # self.add_out_dir_info(rlt_res, '均衡后最低单体电压值', self.min_volt_end, '', '')
+            # self.add_out_dir_info(rlt_res, '均衡后最低单体电芯号', min_cell_no_end_str, '', '')
+            
+            self.add_out_dir_info(rlt_res, '均衡测试容差最大值', self.max_diff_dcap_balance_ah, '', '')
+            self.add_out_dir_info(rlt_res, '均衡测试容差占比最大值', self.max_ratio_diff_dcap_balance_percent, '', '')
+            self.add_out_dir_info(rlt_res, '均衡测试容差占比', ratio_diff_dcap_balance_percent_str, '', '')
             self.add_out_dir_info(rlt_res, '均衡容量', dcap_array_ah_str, '', '')
             self.add_out_dir_info(rlt_res, '一致性计算异常说明', self.error_records, '', '')
             
             # 说明及建议
-            self.add_out_dir_info(rlt_res, '说明', result_desc, '', '')
+            self.add_out_dir_info(rlt_res, '说明', summary, '', '')
             self.add_out_dir_info(rlt_res, '建议', advice, '', '')
 
             return rlt_res
@@ -280,26 +300,35 @@ class VoltageCapacityConsistency:
     def invalid_result_handle(self, rlt_res):
         """处理无效结果"""
         self.add_out_dir_info(rlt_res, '一致性评估全部结果', 'N/A', '', '')
-        self.add_out_dir_info(rlt_res, '初始最大压差', 'N/A', '', '')
-        self.add_out_dir_info(rlt_res, '结束最大压差', 'N/A', '', '')
-        self.add_out_dir_info(rlt_res, '容差最大值', 'N/A', '', '')
-        self.add_out_dir_info(rlt_res, '容差占比最大值', 'N/A', '', '')
-        self.add_out_dir_info(rlt_res, '均衡前最高单体电压值', 'N/A', '', '')        
-        self.add_out_dir_info(rlt_res, '均衡前最高单体电芯号列表', 'N/A', '', '')
-        self.add_out_dir_info(rlt_res, '均衡前最低单体电压值', 'N/A', '', '')
-        self.add_out_dir_info(rlt_res, '均衡前最低单体电芯号列表', 'N/A', '', '')
-        self.add_out_dir_info(rlt_res, '均衡后最高单体电压值', 'N/A', '', '')
-        self.add_out_dir_info(rlt_res, '均衡后最高单体电芯号列表', 'N/A', '', '')
-        self.add_out_dir_info(rlt_res, '均衡后最低单体电压值', 'N/A', '', '')
-        self.add_out_dir_info(rlt_res, '均衡后最低单体电芯号列表', 'N/A', '', '')
-        self.add_out_dir_info(rlt_res, '电压一致性异常电芯列表', 'N/A', '', '')
-        self.add_out_dir_info(rlt_res, '均衡起始电压列表', 'N/A', '', '')
-        self.add_out_dir_info(rlt_res, '均衡结束电压列表', 'N/A', '', '')
-        self.add_out_dir_info(rlt_res, '容差占比', 'N/A', '', '')
+        self.add_out_dir_info(rlt_res, '均衡测试电芯号', 'N/A', '', '')
+        self.add_out_dir_info(rlt_res, '均衡前电压值', 'N/A', '', '')
+        self.add_out_dir_info(rlt_res, '均衡后电压值', 'N/A', '', '')
+        self.add_out_dir_info(rlt_res, '均衡前一致性异常电芯号', 'N/A', '', '')
+        # self.add_out_dir_info(rlt_res, '均衡后电压一致性异常电芯号', 'N/A', '', '')
+
+        self.add_out_dir_info(rlt_res, '均衡前最大压差', 'N/A', '', '')
+        self.add_out_dir_info(rlt_res, '均衡后最大压差', 'N/A', '', '')
+
+        self.add_out_dir_info(rlt_res, '均衡前电压极值', 'N/A', '', '')
+        self.add_out_dir_info(rlt_res, '均衡后电压极值', 'N/A', '', '')
+
+        # self.add_out_dir_info(rlt_res, '均衡前最高单体电压值', 'N/A', '', '')
+        # self.add_out_dir_info(rlt_res, '均衡前最高单体电芯号', 'N/A', '', '')
+        # self.add_out_dir_info(rlt_res, '均衡前最低单体电压值', 'N/A', '', '')
+        # self.add_out_dir_info(rlt_res, '均衡前最低单体电芯号', 'N/A', '', '')
+        # self.add_out_dir_info(rlt_res, '均衡后最高单体电压值', 'N/A', '', '')
+        # self.add_out_dir_info(rlt_res, '均衡后最高单体电芯号', 'N/A', '', '')
+        # self.add_out_dir_info(rlt_res, '均衡后最低单体电压值', 'N/A', '', '')
+        # self.add_out_dir_info(rlt_res, '均衡后最低单体电芯号', 'N/A', '', '')
+
+        self.add_out_dir_info(rlt_res, '均衡测试容差最大值', 'N/A', '', '')
+        self.add_out_dir_info(rlt_res, '均衡测试容差占比最大值', 'N/A', '', '')
+        self.add_out_dir_info(rlt_res, '均衡测试容差占比', 'N/A', '', '')
         self.add_out_dir_info(rlt_res, '均衡容量', 'N/A', '', '')
+
         self.add_out_dir_info(rlt_res, '一致性计算异常说明', self.error_records, '', '')
-        self.add_out_dir_info(rlt_res, '说明', 'N/A', '', '')
-        self.add_out_dir_info(rlt_res, '建议', 'N/A', '', '')
+        self.add_out_dir_info(rlt_res, '说明', '均衡测试没有有效数据或计算结果。', '', '')
+        self.add_out_dir_info(rlt_res, '建议', '暂无建议。', '', '')
 
 def run(balance_rlt_res, data_clean_rlt):
     '''
@@ -316,11 +345,15 @@ def run(balance_rlt_res, data_clean_rlt):
     }
 
     try:
+        st = time.time()
+
         consis = VoltageCapacityConsistency(data_clean_rlt, balance_rlt_res)
         consis.get_min_max_voltages()
         consis.get_dcap_balance()
-        consistency_info = consis.get_output_json(rlt_res)
-        return consistency_info
+        balance_info = consis.get_output_json(rlt_res)
+
+        log.logger.debug(f"balance calculate time: {round(time.time()-st,5)} seconds")
+        return balance_info
     except Exception as e:
         rlt_res['ErrorCode'][0] = 3001
         consis.invalid_result_handle(rlt_res)
