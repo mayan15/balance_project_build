@@ -31,7 +31,7 @@ level = 'info'
 log = Logger('./logs/run_alg.log', level=level)
 
 # 存放所有算法模块的执行结果， 最终用于报告生成
-def alg_execution(df_plus_data, dict_autocap_data, dict_balance_data, cell_config_msg, filename):
+def alg_execution(df_pulse_data, dict_autocap_data, dict_balance_data, cell_config_msg, filename):
     alg_rlt_list = []
     current_date = datetime.now().strftime("%Y%m%d")     # 获取当前日期
     log.logger.info("开始执行算法模块...")
@@ -41,12 +41,12 @@ def alg_execution(df_plus_data, dict_autocap_data, dict_balance_data, cell_confi
     report_folder_path = os.path.join(first_level_folder, filename)
     # 创建第一级文件夹
     os.makedirs(report_folder_path, exist_ok=True)
-    data_clean_rlt = data_clean_overview.run(df_plus_data, dict_autocap_data, dict_balance_data, cell_config_msg)
+    data_clean_rlt = data_clean_overview.run(df_pulse_data, dict_autocap_data, dict_balance_data, cell_config_msg)
     alg_rlt_list.append(data_clean_rlt)
-    if data_clean_rlt['ErrorCode'][0] == 0 and data_clean_rlt['out']['plus_data'][0] != None:
-        # 1.脉冲检测算法
-        plus_rlt = first_order.run(data_clean_rlt['out']['plus_data'][0], data_clean_rlt)
-        alg_rlt_list.append(plus_rlt)
+    if data_clean_rlt['ErrorCode'][0] == 0:
+        # 1.内阻检测算法
+        pulse_rlt = first_order.run(data_clean_rlt['out']['pulse_data'][0], data_clean_rlt)
+        alg_rlt_list.append(pulse_rlt)
         # 2.todo 特定工况容量计算
         soh_info = cal_soh_autocap.run(data_clean_rlt['out']['autocap_data'][0], data_clean_rlt)
         alg_rlt_list.append(soh_info)
@@ -54,7 +54,8 @@ def alg_execution(df_plus_data, dict_autocap_data, dict_balance_data, cell_confi
         consist_rlt = consist_balance_data.run(data_clean_rlt['out']['balance_data'][0], data_clean_rlt)
         alg_rlt_list.append(consist_rlt)
         # 4.生成json报告文件
-        generate_json.run(data_clean_rlt, alg_rlt_list, report_folder_path)
+        rlt_json = generate_json.run(data_clean_rlt, alg_rlt_list, report_folder_path)
+        return rlt_json
     else:
         log.logger.error(data_clean_rlt['ErrorCode'][0], data_clean_rlt['ErrorCode'][2])
         return data_clean_rlt
