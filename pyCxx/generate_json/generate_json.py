@@ -126,13 +126,15 @@ def run(data_clean_rlt, alg_rlt_list, report_save_path):
 
     try:
         rlt_res["data"] = {
+            "car_info":{},
+
             "battery_info":{},
 
             "pulse_info": {},
 
             "soh_info": {},
 
-            "consistency_info": {},
+            "balance_info": {},
 
             # 额外增加检测说明和维保建议
             "检测说明": {},
@@ -149,6 +151,11 @@ def run(data_clean_rlt, alg_rlt_list, report_save_path):
                             {'低':f"计算值低于指标阈值{0.5}-{0.8}倍之间"},
                             {'过低':f"计算值低于指标阈值{0.8}倍或以上"}
                         ]
+
+        '''车辆信息'''
+        rlt_res["data"]['car_info'].update(create_info("vin", data_clean_rlt['out']['vin'][0], '', '/', '', ''))
+        rlt_res["data"]['car_info'].update(create_info("行驶里程", data_clean_rlt['out']['mileage'][0], '', '/', '公里(km)', ''))
+        rlt_res["data"]['car_info'].update(create_info("设备ID", data_clean_rlt['out']['device_id'][0], '', '/', '', '', '否'))
        
         '''电池包基本信息''' 
         cell_type =  ''
@@ -156,88 +163,82 @@ def run(data_clean_rlt, alg_rlt_list, report_save_path):
             cell_type = '三元锂'
         elif data_clean_rlt['out']['battery_type'][0] == 'LFP':
             cell_type = '磷酸铁锂'
-        rlt_res["data"]['battery_info'].update(
-            create_info("电池类型", cell_type, '', '三元锂(NCM),磷酸铁锂(LFP)', '', ''))
-        rlt_res["data"]['battery_info'].update(
-            create_info("额定容量", data_clean_rlt['out']['battery_capacity'][0], '', '/', '安时(Ah)', ''))
+        rlt_res["data"]['battery_info'].update(create_info("额定容量", data_clean_rlt['out']['battery_capacity'][0], '', '/', '安时(Ah)', ''))
+        rlt_res["data"]['battery_info'].update(create_info("电池类型", cell_type, '', '三元锂(NCM),磷酸铁锂(LFP)', '', ''))
+        # rlt_res["data"]['battery_info'].update(create_info("额定总压", data_clean_rlt['out']['battery_voltage'][0], '', '/', '伏(V)', ''))
+        rlt_res["data"]['battery_info'].update(create_info("额定能量", data_clean_rlt['out']['battery_rata_energy'][0], '', '/', '千瓦时(KW·h)', ''))
+        rlt_res["data"]['battery_info'].update(create_info("出厂日期", data_clean_rlt['out']['battery_manufacture_date'][0], '', '/', '', ''))
+        rlt_res["data"]['battery_info'].update(create_info("电池厂商", data_clean_rlt['out']['battery_manufacture'][0], '', '/', '', ''))
         
-        '''脉冲测试结果'''
-        rlt_res["data"]['pulse_info'].update(create_info("脉冲测试电芯号", alg_rlt_list[1]['out']['DCR计算电芯号'][0], '', '/', '', ''))
-        rlt_res["data"]['pulse_info'].update(create_info("脉冲测试内阻值", alg_rlt_list[1]['out']['DCR计算直流内阻值'][0],'', '/', '毫欧(mΩ)', ''))
-        rlt_res["data"]['pulse_info'].update(create_info("脉冲测试计算tau值", alg_rlt_list[1]['out']['DCR计算tau值'][0], '', '/', '秒(s)', '', '是'))
-        rlt_res["data"]['pulse_info'].update(create_info("脉冲测试计算R0值", alg_rlt_list[1]['out']['DCR计算R0值'][0], '', '/', '毫欧(mΩ)', '', '否'))
-        rlt_res["data"]['pulse_info'].update(create_info("脉冲测试计算R1值", alg_rlt_list[1]['out']['DCR计算R1值'][0], '', '/', '毫欧(mΩ)', '', '否'))
-        rlt_res["data"]['pulse_info'].update(create_info("脉冲测试起始电压", alg_rlt_list[1]['out']['DCR计算电芯起始电压值'][0], '', '/', '伏(V)', ''))
-        rlt_res["data"]['pulse_info'].update(create_info("脉冲测试计算异常说明", alg_rlt_list[1]['out']['DCR计算异常说明'][0], '', '/', '', '', '否'))
+        '''均衡结果'''
+        rlt_res["data"]['balance_info'].update(create_info("测试电芯号", alg_rlt_list[3]['out']['均衡测试电芯号'][0], '', '/', '', ''))
+        rlt_res["data"]['balance_info'].update(create_info("均衡前电压值", alg_rlt_list[3]['out']['均衡前电压值'][0], '', '/', '伏(V)', ''))
+        rlt_res["data"]['balance_info'].update(create_info("均衡后电压值", alg_rlt_list[3]['out']['均衡后电压值'][0], '', '/', '伏(V)', ''))    
+        rlt_res["data"]['balance_info'].update(create_info("均衡充放电容量", alg_rlt_list[3]['out']['均衡容量'][0], '', '/', '安时(Ah)', ''))
+        rlt_res["data"]['balance_info'].update(create_info("均衡前最大压差", alg_rlt_list[3]['out']['均衡前最大压差'][0], '', '/', '毫伏(mV)', ''))
+        rlt_res["data"]['balance_info'].update(create_info("均衡后最大压差", alg_rlt_list[3]['out']['均衡后最大压差'][0], '', '/', '毫伏(mV)', ''))
+        rlt_res["data"]['balance_info'].update(create_info("均衡前电压极值", alg_rlt_list[3]['out']['均衡前电压极值'][0], '', '/', '', ''))
+        rlt_res["data"]['balance_info'].update(create_info("均衡后电压极值", alg_rlt_list[3]['out']['均衡后电压极值'][0], '', '/', '', ''))
+        # rlt_res["data"]['balance_info'].update(create_info("均衡前最高单体电压值", alg_rlt_list[3]['out']['均衡前最高单体电压值'][0], '', '/', '伏(V)', ''))
+        # rlt_res["data"]['balance_info'].update(create_info("均衡前最高单体电芯号", alg_rlt_list[3]['out']['均衡前最高单体电芯号'][0], '', '/', '', ''))
+        # rlt_res["data"]['balance_info'].update(create_info("均衡前最低单体电压值", alg_rlt_list[3]['out']['均衡前最低单体电压值'][0], '', '/', '伏(V)', ''))
+        # rlt_res["data"]['balance_info'].update(create_info("均衡前最低单体电芯号", alg_rlt_list[3]['out']['均衡前最低单体电芯号'][0], '', '/', '', ''))
+        # rlt_res["data"]['balance_info'].update(create_info("均衡后最高单体电压值", alg_rlt_list[3]['out']['均衡后最高单体电压值'][0], '', '/', '伏(V)', ''))
+        # rlt_res["data"]['balance_info'].update(create_info("均衡后最高单体电芯号", alg_rlt_list[3]['out']['均衡后最高单体电芯号'][0], '', '/', '', ''))
+        # rlt_res["data"]['balance_info'].update(create_info("均衡后最低单体电压值", alg_rlt_list[3]['out']['均衡后最低单体电压值'][0], '', '/', '伏(V)', ''))
+        # rlt_res["data"]['balance_info'].update(create_info("均衡后最低单体电芯号", alg_rlt_list[3]['out']['均衡后最低单体电芯号'][0], '', '/', '', ''))
+        rlt_res["data"]['balance_info'].update(create_info("均衡测试容差占比", alg_rlt_list[3]['out']['均衡测试容差占比'][0], '', '/', '百分比(%)', ''))
+        rlt_res["data"]['balance_info'].update(create_info("均衡前一致性异常电芯号", alg_rlt_list[3]['out']['均衡前一致性异常电芯号'][0], '', '/', '', ''))
+        rlt_res["data"]['balance_info'].update(create_info("均衡测试容差最大值", alg_rlt_list[3]['out']['均衡测试容差最大值'][0], '', '/', '安时(Ah)', '', '否'))
+        rlt_res["data"]['balance_info'].update(create_info("均衡测试容差占比最大值", alg_rlt_list[3]['out']['均衡测试容差占比最大值'][0], '', '/', '百分比(%)', '', '否'))
+        rlt_res["data"]['balance_info'].update(create_info("一致性计算异常说明", alg_rlt_list[3]['out']['一致性计算异常说明'][0], '', '/', '', '', '否'))
+        
+        balance_summary = alg_rlt_list[3]['out']['说明'][0]
+        balance_advice = alg_rlt_list[3]['out']['建议'][0]
+
+        '''内阻测试结果'''
+        rlt_res["data"]['pulse_info'].update(create_info("测试电芯号", alg_rlt_list[1]['out']['内阻计算电芯号'][0], '', '/', '', ''))
+        rlt_res["data"]['pulse_info'].update(create_info("内阻测试内阻值", alg_rlt_list[1]['out']['内阻计算直流内阻值'][0],'', '/', '毫欧(mΩ)', ''))
+        rlt_res["data"]['pulse_info'].update(create_info("内阻测试计算tau值", alg_rlt_list[1]['out']['内阻计算tau值'][0], '', '/', '秒(s)', '', '是'))
+        rlt_res["data"]['pulse_info'].update(create_info("内阻测试计算R0值", alg_rlt_list[1]['out']['内阻计算R0值'][0], '', '/', '毫欧(mΩ)', '', '否'))
+        rlt_res["data"]['pulse_info'].update(create_info("内阻测试计算R1值", alg_rlt_list[1]['out']['内阻计算R1值'][0], '', '/', '毫欧(mΩ)', '', '否'))
+        rlt_res["data"]['pulse_info'].update(create_info("内阻测试起始电压", alg_rlt_list[1]['out']['内阻计算电芯起始电压值'][0], '', '/', '伏(V)', ''))
+        rlt_res["data"]['pulse_info'].update(create_info("内阻测试阻值异常电芯号", alg_rlt_list[1]['out']['内阻值异常电芯号'][0], '', '/', '', ''))
+        rlt_res["data"]['pulse_info'].update(create_info("内阻测试计算异常说明", alg_rlt_list[1]['out']['内阻计算异常说明'][0], '', '/', '', '', '否'))
         pulse_summary = alg_rlt_list[1]['out']['说明'][0]
         pulse_advice = alg_rlt_list[1]['out']['建议'][0]
         
         '''SOH结果'''
-        # 包括SOH最高值，SOH最低值，SOH最高值电芯号，SOH最低值电芯号，SOH异常电芯号，测试SOH电芯号列表，测试电芯SOH列表，SOH异常维修建议，SOH结果说明
-        rlt_res["data"]['soh_info'].update(create_info("SOH最高值", alg_rlt_list[2]['out']['SOH最高值'][0], '', '/', '百分比(%)', ''))
-        rlt_res["data"]['soh_info'].update(create_info("SOH最低值", alg_rlt_list[2]['out']['SOH最低值'][0], '', '/', '百分比(%)', ''))
-        rlt_res["data"]['soh_info'].update(create_info("SOH最高值电芯号", alg_rlt_list[2]['out']['SOH最高值电芯号'][0], '', '/', '', ''))
-        rlt_res["data"]['soh_info'].update(create_info("SOH最低值电芯号", alg_rlt_list[2]['out']['SOH最低值电芯号'][0], '', '/', '', ''))
-        rlt_res["data"]['soh_info'].update(create_info("SOH异常电芯号", alg_rlt_list[2]['out']['SOH异常电芯列表'][0], '', '/', '', ''))
-        rlt_res["data"]['soh_info'].update(create_info("测试SOH电芯号列表", alg_rlt_list[2]['out']['测试SOH电芯号列表'][0], '', '/', '', ''))
-        rlt_res["data"]['soh_info'].update(create_info("测试电芯SOH列表", alg_rlt_list[2]['out']['测试电芯SOH列表'][0], '', '/', '百分比(%)', ''))
-        rlt_res["data"]['soh_info'].update(create_info("SOH计算异常说明", alg_rlt_list[2]['out']['SOH计算异常说明'][0], '', '/', '', '', '否'))
+        # 包括SOH最高值，SOH最低值，SOH最高值电芯号，SOH最低值电芯号，SOH异常电芯号，容量测试电芯号，容量测试SOH值，SOH异常维修建议，SOH结果说明
+        rlt_res["data"]['soh_info'].update(create_info("测试电芯号", alg_rlt_list[2]['out']['容量测试电芯号'][0], '', '/', '', ''))
+        rlt_res["data"]['soh_info'].update(create_info("容量测试SOH值", alg_rlt_list[2]['out']['容量测试SOH值'][0], '', '/', '百分比(%)', ''))
+        rlt_res["data"]['soh_info'].update(create_info("容量测试SOH最高值", alg_rlt_list[2]['out']['SOH最高值'][0], '', '/', '百分比(%)', ''))
+        rlt_res["data"]['soh_info'].update(create_info("容量测试SOH最低值", alg_rlt_list[2]['out']['SOH最低值'][0], '', '/', '百分比(%)', ''))
+        rlt_res["data"]['soh_info'].update(create_info("容量测试SOH最高值电芯号", alg_rlt_list[2]['out']['SOH最高值电芯号'][0], '', '/', '', ''))
+        rlt_res["data"]['soh_info'].update(create_info("容量测试SOH最低值电芯号", alg_rlt_list[2]['out']['SOH最低值电芯号'][0], '', '/', '', ''))
+        rlt_res["data"]['soh_info'].update(create_info("容量测试SOH值异常电芯号", alg_rlt_list[2]['out']['SOH值异常电芯号'][0], '', '/', '', ''))
+        rlt_res["data"]['soh_info'].update(create_info("容量测试SOH计算异常说明", alg_rlt_list[2]['out']['SOH计算异常说明'][0], '', '/', '', '', '否'))
         soh_summary = alg_rlt_list[2]['out']['说明'][0]
         soh_advice = alg_rlt_list[2]['out']['建议'][0]
 
-        '''一致性结果'''
-        # 初始最大压差，结束最大压差，容差最大值，容差占比最大值，容差占比阈值，最高单体电压值，最高单体电芯号列表，最低单体电压值，最低单体电芯号列表，电压一致性异常电芯列表，均衡起始电压列表，均衡结束电压列表，一致性评估异常记录，说明，建议
-        rlt_res["data"]['consistency_info'].update(create_info("一致性计算异常说明", alg_rlt_list[3]['out']['一致性计算异常说明'][0], '', '/', '', '', '否'))
-        rlt_res["data"]['consistency_info'].update(create_info("初始最大压差", alg_rlt_list[3]['out']['初始最大压差'][0], '', '/', '毫伏(mV)', ''))
-        rlt_res["data"]['consistency_info'].update(create_info("结束最大压差", alg_rlt_list[3]['out']['结束最大压差'][0], '', '/', '毫伏(mV)', ''))
-        rlt_res["data"]['consistency_info'].update(create_info("容差最大值", alg_rlt_list[3]['out']['容差最大值'][0], '', '/', '安时(Ah)', ''))
-        rlt_res["data"]['consistency_info'].update(create_info("容差占比最大值", alg_rlt_list[3]['out']['容差占比最大值'][0], '', '/', '百分比(%)', ''))
-        rlt_res["data"]['consistency_info'].update(create_info("均衡前最高单体电压值", alg_rlt_list[3]['out']['均衡前最高单体电压值'][0], '', '/', '伏(V)', ''))
-        rlt_res["data"]['consistency_info'].update(create_info("均衡前最高单体电芯号列表", alg_rlt_list[3]['out']['均衡前最高单体电芯号列表'][0], '', '/', '', ''))
-        rlt_res["data"]['consistency_info'].update(create_info("均衡前最低单体电压值", alg_rlt_list[3]['out']['均衡前最低单体电压值'][0], '', '/', '伏(V)', ''))
-        rlt_res["data"]['consistency_info'].update(create_info("均衡前最低单体电芯号列表", alg_rlt_list[3]['out']['均衡前最低单体电芯号列表'][0], '', '/', '', ''))
-        rlt_res["data"]['consistency_info'].update(create_info("均衡后最高单体电压值", alg_rlt_list[3]['out']['均衡后最高单体电压值'][0], '', '/', '伏(V)', ''))
-        rlt_res["data"]['consistency_info'].update(create_info("均衡后最高单体电芯号列表", alg_rlt_list[3]['out']['均衡后最高单体电芯号列表'][0], '', '/', '', ''))
-        rlt_res["data"]['consistency_info'].update(create_info("均衡后最低单体电压值", alg_rlt_list[3]['out']['均衡后最低单体电压值'][0], '', '/', '伏(V)', ''))
-        rlt_res["data"]['consistency_info'].update(create_info("均衡后最低单体电芯号列表", alg_rlt_list[3]['out']['均衡后最低单体电芯号列表'][0], '', '/', '', ''))
-        rlt_res["data"]['consistency_info'].update(create_info("电压一致性异常电芯列表", alg_rlt_list[3]['out']['电压一致性异常电芯列表'][0], '', '/', '', ''))
-        rlt_res["data"]['consistency_info'].update(create_info("均衡起始电压列表", alg_rlt_list[3]['out']['均衡起始电压列表'][0], '', '/', '伏(V)', ''))
-        rlt_res["data"]['consistency_info'].update(create_info("均衡结束电压列表", alg_rlt_list[3]['out']['均衡结束电压列表'][0], '', '/', '伏(V)', ''))
-        rlt_res["data"]['consistency_info'].update(create_info("容差占比", alg_rlt_list[3]['out']['容差占比'][0], '', '/', '百分比(%)', ''))
-        rlt_res["data"]['consistency_info'].update(create_info("均衡容量", alg_rlt_list[3]['out']['均衡容量'][0], '', '/', '安时(Ah)', ''))
-        
-        consis_summary = alg_rlt_list[3]['out']['说明'][0]
-        consis_advice = alg_rlt_list[3]['out']['建议'][0]
 
         # 说明及建议
-        summary = "* 注意：仅针对本次测试数据的分析结果进行说明，内容仅供参考。"  \
-                        + "若某项检测结果为 'N/A'，是因为本次测试数据不支持该项出具分析结果。"
-                        # + "\n"  \
-                        # + pulse_summary \
-                        # + soh_summary \
-                        # + consis_advice
+        summary = "仅针对本次测试数据的分析结果进行说明，内容仅供参考。"
+        # summary += "若某项检测结果为 'N/A'，是因为本次测试数据不支持该项出具分析结果。"
 
         rlt_res["data"]['检测说明'].update(create_info("总述", summary, '', '', '', ''))
-        rlt_res["data"]['检测说明'].update(create_info("脉冲测试", pulse_summary, '', '', '', ''))
+        rlt_res["data"]['检测说明'].update(create_info("均衡测试", balance_summary, '', '', '', ''))
+        rlt_res["data"]['检测说明'].update(create_info("内阻测试", pulse_summary, '', '', '', ''))
         rlt_res["data"]['检测说明'].update(create_info("容量测试", soh_summary, '', '', '', ''))
-        rlt_res["data"]['检测说明'].update(create_info("均衡测试", consis_summary, '', '', '', ''))
-
-        rlt_res["data"]['维保建议'].update(create_info("脉冲测试", pulse_advice, '', '', '', ''))
+        
+        rlt_res["data"]['维保建议'].update(create_info("均衡测试", balance_advice, '', '', '', ''))
+        rlt_res["data"]['维保建议'].update(create_info("内阻测试", pulse_advice, '', '', '', ''))
         rlt_res["data"]['维保建议'].update(create_info("容量测试", soh_advice, '', '', '', ''))
-        rlt_res["data"]['维保建议'].update(create_info("均衡测试", consis_advice, '', '', '', ''))
 
-        #if NO_DEBUG:
         # 将数据写入JSON文件
         file_path = os.path.join(report_save_path, 'data.json')
         with open(file_path, 'w', encoding='utf-8') as json_file:
             json.dump(rlt_res, json_file, ensure_ascii=False, indent=4)  
-        #else:
-            #sp: 新增写入到data文件中，用于测试
-        # timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
-        # 获取当前文件夹
-        # file_path = os.path.join('/root/data/sp/charging_project_build/data/json/', f'{alg_rlt_list[6]}.json')
-        # with open(file_path, 'w', encoding='utf-8') as json_file:
-        #         json.dump(rlt_res, json_file, ensure_ascii=False, indent=4)
 
         rlt_res['ErrorCode'][0] = 0
         rlt_res['ErrorCode'][2] = "生成报告成功"
